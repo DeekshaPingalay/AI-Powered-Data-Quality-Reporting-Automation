@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Data Quality Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    /* ── Navbar ── */
+    .navbar {
+      background: #1e293b;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #334155;
+    }
+    .navbar h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #38bdf8;
+      letter-spacing: -0.5px;
+    }
+    .navbar span {
+      font-size: 0.8rem;
+      color: #64748b;
+    }
+    .refresh-btn {
+      background: #38bdf8;
+      color: #0f172a;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: background 0.2s;
+    }
+    .refresh-btn:hover { background: #7dd3fc; }
+
+    /* ── Layout ── */
+    .container { padding: 28px 32px; max-width: 1400px; margin: 0 auto; }
+
+    /* ── Stat Cards ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 20px 24px;
+    }
+    .stat-card .label {
+      font-size: 0.75rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 8px;
+    }
+    .stat-card .value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #f1f5f9;
+    }
+    .stat-card .sub {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-top: 4px;
+    }
+    .stat-card.alert .value { color: #f87171; }
+    .stat-card.success .value { color: #4ade80; }
+    .stat-card.info .value { color: #38bdf8; }
+    .stat-card.warn .value { color: #fbbf24; }
+
+    /* ── Charts Row ── */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .chart-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 20px 24px;
+    }
+    .chart-card h3 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 16px;
+    }
+    .chart-wrapper { position: relative; height: 220px; }
+
+    /* ── Tables ── */
+    .tables-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .table-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 20px 24px;
+    }
+    .table-card h3 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 16px;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      color: #64748b;
+      font-weight: 600;
+      font-size: 0.75rem;
+      border-bottom: 1px solid #334155;
+    }
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #1e293b;
+      color: #cbd5e1;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #0f172a; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .badge-completed { background: #14532d; color: #4ade80; }
+    .badge-failed    { background: #450a0a; color: #f87171; }
+    .badge-running   { background: #1c3461; color: #60a5fa; }
+    .badge-pending   { background: #2d2016; color: #fbbf24; }
+
+    /* ── Upload Section ── */
+    .upload-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 28px;
+    }
+    .upload-card h3 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 16px;
+    }
+    .upload-form {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .upload-form input[type="text"] {
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #e2e8f0;
+      padding: 9px 14px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      width: 200px;
+    }
+    .upload-form input[type="file"] {
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #94a3b8;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .upload-btn {
+      background: #6366f1;
+      color: white;
+      border: none;
+      padding: 9px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: background 0.2s;
+    }
+    .upload-btn:hover { background: #818cf8; }
+    .upload-msg {
+      font-size: 0.8rem;
+      margin-top: 10px;
+      padding: 8px 14px;
+      border-radius: 6px;
+      display: none;
+    }
+    .upload-msg.success { background: #14532d; color: #4ade80; display: block; }
+    .upload-msg.error   { background: #450a0a; color: #f87171; display: block; }
+
+    /* ── Loading ── */
+    .loading { color: #64748b; font-size: 0.85rem; padding: 20px 0; text-align: center; }
+
+    /* ── Anomaly Detail Section ── */
+    .detail-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 28px;
+    }
+    .detail-card h3 {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 16px;
+    }
+    .anomaly-row { color: #f87171; font-weight: 600; }
+    .score-bar {
+      display: inline-block;
+      height: 8px;
+      border-radius: 4px;
+      background: #4ade80;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    .score-bar.anomaly { background: #f87171; }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <h1>🔍 Data Quality Dashboard</h1>
+  <span id="last-updated">Loading...</span>
+  <button class="refresh-btn" onclick="loadAll()">↻ Refresh</button>
+</nav>
+
+<div class="container">
+
+  <!-- Upload CSV -->
+  <div class="upload-card">
+    <h3>📂 Upload Dataset (CSV)</h3>
+    <div class="upload-form">
+      <input type="text" id="dataset-name" placeholder="Dataset name" />
+      <input type="text" id="dataset-source" placeholder="Source (optional)" />
+      <input type="file" id="csv-file" accept=".csv" />
+      <button class="upload-btn" onclick="uploadCSV()">Upload & Run Check</button>
+    </div>
+    <div class="upload-msg" id="upload-msg"></div>
+  </div>
+
+  <!-- Stat Cards -->
+  <div class="stats-grid">
+    <div class="stat-card info">
+      <div class="label">Total Datasets</div>
+      <div class="value" id="stat-datasets">—</div>
+      <div class="sub">registered datasets</div>
+    </div>
+    <div class="stat-card success">
+      <div class="label">Total Records</div>
+      <div class="value" id="stat-records">—</div>
+      <div class="sub">data points ingested</div>
+    </div>
+    <div class="stat-card warn">
+      <div class="label">Reports Run</div>
+      <div class="value" id="stat-reports">—</div>
+      <div class="sub">quality checks completed</div>
+    </div>
+    <div class="stat-card alert">
+      <div class="label">Anomalies Found</div>
+      <div class="value" id="stat-anomalies">—</div>
+      <div class="sub">flagged across all reports</div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h3>📊 Anomalies per Report</h3>
+      <div class="chart-wrapper">
+        <canvas id="anomalies-chart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>🟢 Report Status Breakdown</h3>
+      <div class="chart-wrapper">
+        <canvas id="status-chart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tables -->
+  <div class="tables-grid">
+    <!-- Datasets Table -->
+    <div class="table-card">
+      <h3>📁 Datasets</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Source</th>
+            <th>Uploaded</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="datasets-table">
+          <tr><td colspan="5" class="loading">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Reports Table -->
+    <div class="table-card">
+      <h3>📋 Anomaly Reports</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Dataset</th>
+            <th>Status</th>
+            <th>Records</th>
+            <th>Anomalies</th>
+          </tr>
+        </thead>
+        <tbody id="reports-table">
+          <tr><td colspan="5" class="loading">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Anomaly Detail -->
+  <div class="detail-card">
+    <h3>🚨 Latest Report — Anomaly Detail</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Record #</th>
+          <th>Status</th>
+          <th>Score</th>
+          <th>Score Bar</th>
+          <th>Data Preview</th>
+        </tr>
+      </thead>
+      <tbody id="detail-table">
+        <tr><td colspan="5" class="loading">Run a check to see details...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+  const API = '/api';
+  // ── CSRF Helper ──────────────────────────────────────
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    document.cookie.split(';').forEach(cookie => {
+      const c = cookie.trim();
+      if (c.startsWith(name + '=')) {
+        cookieValue = decodeURIComponent(c.substring(name.length + 1));
+      }
+    });
+  }
+  return cookieValue;
+}
+const CSRF = () => getCookie('csrftoken');
+
+  let anomaliesChart = null;
+  let statusChart = null;
+
+  // ── Helpers ──────────────────────────────────────────
+  const fmt = d => new Date(d).toLocaleDateString('en-GB', {
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+  });
+
+  const badge = s => `<span class="badge badge-${s}">${s}</span>`;
+
+  async function apiFetch(url) {
+    const res = await fetch(API + url);
+    return res.json();
+  }
+
+  // ── Load Everything ───────────────────────────────────
+  async function loadAll() {
+    document.getElementById('last-updated').textContent =
+      'Updated: ' + new Date().toLocaleTimeString();
+    await Promise.all([loadDatasets(), loadReports(), loadRecords()]);
+  }
+
+  // ── Datasets ──────────────────────────────────────────
+  async function loadDatasets() {
+    const data = await apiFetch('/datasets/');
+    const datasets = data.results ?? data;
+    document.getElementById('stat-datasets').textContent = datasets.length;
+
+    const tbody = document.getElementById('datasets-table');
+    if (!datasets.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="loading">No datasets yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = datasets.map(d => `
+      <tr>
+        <td>#${d.id}</td>
+        <td>${d.name}</td>
+        <td>${d.source || '—'}</td>
+        <td>${fmt(d.uploaded_at)}</td>
+        <td>
+          <button class="refresh-btn" style="font-size:0.75rem;padding:5px 10px"
+            onclick="runCheck(${d.id})">▶ Run Check</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // ── Records ───────────────────────────────────────────
+  async function loadRecords() {
+    const data = await apiFetch('/records/');
+    const records = data.results ?? data;
+    document.getElementById('stat-records').textContent = records.length;
+  }
+
+  // ── Reports ───────────────────────────────────────────
+  async function loadReports() {
+    const data = await apiFetch('/reports/');
+    const reports = data.results ?? data;
+
+    document.getElementById('stat-reports').textContent = reports.length;
+
+    const totalAnomalies = reports.reduce((s, r) => s + (r.anomalies_found || 0), 0);
+    document.getElementById('stat-anomalies').textContent = totalAnomalies;
+
+    // Reports Table
+    const tbody = document.getElementById('reports-table');
+    if (!reports.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="loading">No reports yet.</td></tr>';
+    } else {
+      tbody.innerHTML = reports.slice(0, 10).map(r => `
+        <tr>
+          <td>#${r.id}</td>
+          <td>#${r.dataset}</td>
+          <td>${badge(r.status)}</td>
+          <td>${r.total_records}</td>
+          <td style="color:${r.anomalies_found > 0 ? '#f87171' : '#4ade80'}">
+            ${r.anomalies_found}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    renderCharts(reports);
+
+    // Load detail for latest completed report
+    const latest = reports.find(r => r.status === 'completed');
+    if (latest) renderDetail(latest);
+  }
+
+  // ── Run Check ─────────────────────────────────────────
+  async function runCheck(datasetId) {
+  try {
+    const res = await fetch(`${API}/datasets/${datasetId}/run-check/`, {
+  method: 'POST',
+  headers: { 'X-CSRFToken': CSRF() },   // ADD THIS LINE
+});
+    const data = await res.json();
+    console.log('Run check response:', data);
+    await loadAll();
+  } catch(e) {
+    console.error('Run check error:', e);
+  }
+}
+
+  // ── Upload CSV ────────────────────────────────────────
+  async function uploadCSV() {
+  const name   = document.getElementById('dataset-name').value || 'Unnamed Dataset';
+  const source = document.getElementById('dataset-source').value || 'csv_upload';
+  const file   = document.getElementById('csv-file').files[0];
+  const msg    = document.getElementById('upload-msg');
+
+  if (!file) {
+    msg.className = 'upload-msg error';
+    msg.textContent = '⚠️ Please select a CSV file.';
+    return;
+  }
+
+  // Show loading state
+  msg.className = 'upload-msg success';
+  msg.textContent = '⏳ Uploading...';
+  msg.style.display = 'block';
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('name', name);
+  formData.append('source', source);
+
+  try {
+    const res = await fetch(`${API}/upload-csv/`, {
+  method: 'POST',
+  headers: { 'X-CSRFToken': CSRF() },   // ADD THIS LINE
+  body: formData
+    });
+
+    // Always read response as text first to avoid parse errors
+    const text = await res.text();
+    console.log('Raw upload response:', text);
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch(parseErr) {
+      msg.className = 'upload-msg error';
+      msg.textContent = `❌ Server returned unexpected response: ${text.substring(0, 100)}`;
+      return;
+    }
+
+    if (res.ok) {
+      msg.className = 'upload-msg success';
+      msg.textContent = `✅ "${data.dataset_name}" uploaded — ${data.records_created} records. Running check...`;
+      await runCheck(data.dataset_id);
+      await loadAll();
+    } else {
+      msg.className = 'upload-msg error';
+      msg.textContent = `❌ Error: ${data.error || data.detail || JSON.stringify(data)}`;
+    }
+
+  } catch (e) {
+    msg.className = 'upload-msg error';
+    msg.textContent = `❌ Upload failed: ${e.message}`;
+    console.error('Upload error:', e);
+  }
+}
+
+  // ── Charts ────────────────────────────────────────────
+  function renderCharts(reports) {
+    const completed = reports.filter(r => r.status === 'completed').slice(0, 8);
+
+    // Bar chart — anomalies per report
+    const labels = completed.map(r => `Report #${r.id}`);
+    const values = completed.map(r => r.anomalies_found);
+
+    if (anomaliesChart) anomaliesChart.destroy();
+    anomaliesChart = new Chart(
+      document.getElementById('anomalies-chart'),
+      {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Anomalies Found',
+            data: values,
+            backgroundColor: values.map(v => v > 0 ? '#f87171' : '#4ade80'),
+            borderRadius: 6,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } },
+            y: { ticks: { color: '#64748b', stepSize: 1 }, grid: { color: '#334155' } }
+          }
+        }
+      }
+    );
+
+    // Doughnut chart — status breakdown
+    const statuses = { completed: 0, failed: 0, running: 0, pending: 0 };
+    reports.forEach(r => { if (statuses[r.status] !== undefined) statuses[r.status]++; });
+
+    if (statusChart) statusChart.destroy();
+    statusChart = new Chart(
+      document.getElementById('status-chart'),
+      {
+        type: 'doughnut',
+        data: {
+          labels: ['Completed', 'Failed', 'Running', 'Pending'],
+          datasets: [{
+            data: Object.values(statuses),
+            backgroundColor: ['#4ade80', '#f87171', '#60a5fa', '#fbbf24'],
+            borderWidth: 0,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: { color: '#94a3b8', boxWidth: 12, font: { size: 12 } }
+            }
+          }
+        }
+      }
+    );
+  }
+
+  // ── Anomaly Detail ────────────────────────────────────
+  function renderDetail(report) {
+    const details = report.report_data?.details ?? [];
+    const tbody = document.getElementById('detail-table');
+
+    if (!details.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="loading">No detail data.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = details.map(d => {
+      const isAnom = d.is_anomaly;
+      const score  = d.anomaly_score;
+      // Bar width: normalise score to 0-100px range
+      const norm   = Math.min(100, Math.max(4, (score + 0.5) * 100));
+      const barCls = isAnom ? 'anomaly' : '';
+      const preview = JSON.stringify(d.original_record)
+        .replace(/[{}"]/g, '')
+        .split(',')
+        .slice(0, 3)
+        .join(', ');
+
+      return `
+        <tr class="${isAnom ? 'anomaly-row' : ''}">
+          <td>#${d.record_index}</td>
+          <td>${isAnom ? '🚨 Anomaly' : '✅ Normal'}</td>
+          <td>${score}</td>
+          <td>
+            <span class="score-bar ${barCls}" style="width:${norm}px"></span>
+            ${score}
+          </td>
+          <td style="font-size:0.78rem;color:#94a3b8">${preview}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  // ── Init ──────────────────────────────────────────────
+  loadAll();
+  setInterval(loadAll, 30000); // auto-refresh every 30s
+</script>
+
+</body>
+</html>
